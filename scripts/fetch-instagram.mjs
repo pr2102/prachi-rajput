@@ -28,7 +28,53 @@ async function readExistingFallback() {
   }
 }
 
-function normalizeMedia(item) {
+function normalizeInsights(response) {
+  return (response?.data || []).reduce((acc, metric) => {
+    acc[metric.name] = metric.values?.[0]?.value ?? null
+    return acc
+  }, {})
+}
+
+async function fetchMediaInsights(item, token, authOptions) {
+  const metricSets = [
+    'views,reach,likes,comments,saved,shares,total_interactions',
+    'plays,reach,likes,comments,saved,shares,total_interactions',
+    'views',
+  ]
+
+  for (const metrics of metricSets) {
+    try {
+      return normalizeInsights(
+        await requestFirstJson([
+          {
+            label: `insights-header-${item.id}-${metrics}`,
+            url: `https://graph.instagram.com/v25.0/${item.id}/insights?metric=${encodeURIComponent(metrics)}`,
+            options: authOptions,
+          },
+          {
+            label: `insights-query-${item.id}-${metrics}`,
+            url: `https://graph.instagram.com/v25.0/${item.id}/insights?metric=${encodeURIComponent(metrics)}&access_token=${encodeURIComponent(token)}`,
+          },
+        ]),
+      )
+    } catch {
+      // Some media types/tokens do not expose every insight metric. Try the next set.
+    }
+  }
+
+  return {}
+}
+
+async function enrichMediaWithInsights(items, token, authOptions) {
+  return Promise.all(
+    items.map(async (item) => {
+      if (item.media_type !== 'VIDEO' && item.media_type !== 'REELS') return { item, insights: {} }
+      return { item, insights: await fetchMediaInsights(item, token, authOptions) }
+    }),
+  )
+}
+
+function normalizeMedia(item, insights = {}) {
   return {
     id: item.id,
     caption: item.caption || '',
@@ -39,6 +85,11 @@ function normalizeMedia(item) {
     timestamp: item.timestamp || '',
     likeCount: item.like_count ?? null,
     commentsCount: item.comments_count ?? null,
+    viewCount: insights.views ?? insights.plays ?? null,
+    reachCount: insights.reach ?? null,
+    sharesCount: insights.shares ?? null,
+    savedCount: insights.saved ?? null,
+    totalInteractions: insights.total_interactions ?? null,
   }
 }
 
@@ -178,6 +229,8 @@ async function fetchBasicDisplayFeed() {
     },
   ])
 
+  const itemsWithInsights = await enrichMediaWithInsights(media.data || [], token, authOptions)
+
   return {
     source: 'instagram-access-token',
     username: profile.username || fallback.username,
@@ -185,7 +238,7 @@ async function fetchBasicDisplayFeed() {
     profilePictureUrl: profile.profile_picture_url || '',
     mediaCount: profile.media_count ?? null,
     followersCount: profile.followers_count ?? null,
-    items: (media.data || []).map(normalizeMedia).filter((item) => item.mediaUrl),
+    items: itemsWithInsights.map(({ item, insights }) => normalizeMedia(item, insights)).filter((item) => item.mediaUrl),
     fetchedAt: new Date().toISOString(),
   }
 }

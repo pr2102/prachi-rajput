@@ -17,11 +17,9 @@ import {
   VolumeX,
 } from 'lucide-react'
 import {
-  Area,
-  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -41,7 +39,6 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import {
-  analytics,
   brandLogos,
   campaignStats,
   creator,
@@ -120,6 +117,11 @@ function useHoverTone(enabled) {
 
 function getFeedImage(item) {
   return item?.thumbnailUrl || item?.mediaUrl || ''
+}
+
+function formatCompactNumber(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return 'N/A'
+  return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(value))
 }
 
 function Hero({ feed }) {
@@ -445,59 +447,92 @@ function Brands() {
   )
 }
 
-function Analytics() {
+function Analytics({ feed }) {
+  const reelRows = feed.items
+    .filter((item) => item.mediaType === 'VIDEO' || item.mediaType === 'REELS')
+    .map((item, index) => ({
+      name: `Reel ${index + 1}`,
+      title: item.caption ? item.caption.split('\n')[0].slice(0, 54) : `Reel ${index + 1}`,
+      views: Number(item.viewCount || 0),
+      reach: Number(item.reachCount || 0),
+      interactions: Number(item.totalInteractions || item.likeCount || 0) + Number(item.commentsCount || 0),
+      permalink: item.permalink,
+    }))
+
+  const topReels = reelRows
+    .filter((item) => item.views > 0)
+    .sort((a, b) => b.views - a.views)
+    .slice(0, 6)
+    .reverse()
+
+  const hasViews = topReels.length > 0
+  const totalViews = topReels.reduce((sum, item) => sum + item.views, 0)
+  const topViews = hasViews ? Math.max(...topReels.map((item) => item.views)) : 0
+  const totalInteractions = reelRows.reduce((sum, item) => sum + item.interactions, 0)
+
   return (
     <section id="analytics" className="section-shell gsap-panel">
       <SectionHeading
         kicker="Social analytics"
-        title="Beautiful numbers, built for brand rooms."
-        text="Sample creator analytics with follower growth, views, engagement, and campaign-readiness metrics."
+        title="Real Instagram reel performance."
+        text="Live profile media, post count, follower count, and reel view insights pulled from the Instagram token during deployment."
       />
       <div className="mt-12 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
         <Card className="p-5 sm:p-7">
           <div className="mb-7 flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-fuchsia-100">Followers growth</p>
-              <p className="mt-2 text-white/45">Six-month audience momentum</p>
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-fuchsia-100">Top reel views</p>
+              <p className="mt-2 text-white/45">
+                {hasViews ? 'Highest-view reels from the connected Instagram feed' : 'View insights are not available for this token yet'}
+              </p>
             </div>
-            <Badge>+62.8%</Badge>
+            <Badge>{feed.source === 'instagram-access-token' ? 'Live IG' : 'Fallback'}</Badge>
           </div>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={analytics}>
-                <defs>
-                  <linearGradient id="followersGradient" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#f472b6" stopOpacity={0.75} />
-                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                <XAxis dataKey="month" stroke="rgba(255,255,255,0.45)" tickLine={false} axisLine={false} />
-                <YAxis stroke="rgba(255,255,255,0.45)" tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ background: '#12071b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#fff' }} />
-                <Area type="monotone" dataKey="followers" stroke="#f472b6" strokeWidth={3} fill="url(#followersGradient)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {hasViews ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topReels} layout="vertical" margin={{ left: 18, right: 24, top: 8, bottom: 8 }}>
+                  <CartesianGrid stroke="rgba(255,255,255,0.08)" horizontal={false} />
+                  <XAxis type="number" stroke="rgba(255,255,255,0.45)" tickLine={false} axisLine={false} tickFormatter={formatCompactNumber} />
+                  <YAxis dataKey="name" type="category" stroke="rgba(255,255,255,0.55)" tickLine={false} axisLine={false} width={72} />
+                  <Tooltip
+                    formatter={(value) => [formatCompactNumber(value), 'Views']}
+                    labelFormatter={(label) => topReels.find((item) => item.name === label)?.title || label}
+                    contentStyle={{ background: '#12071b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#fff' }}
+                  />
+                  <Bar dataKey="views" radius={[0, 8, 8, 0]} fill="#f472b6" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-[8px] border border-white/10 bg-white/[0.04] p-8 text-center">
+                <p className="max-w-md text-white/55">
+                  Instagram media is connected, but the current token did not return reel view insight metrics. Add insight permission or use an eligible professional account to populate this graph.
+                </p>
+              </div>
+            )}
           </div>
         </Card>
         <div className="grid gap-5">
           <Card className="p-5 sm:p-7">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-fuchsia-100">Views + engagement</p>
-            <div className="mt-6 h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={analytics}>
-                  <XAxis dataKey="month" stroke="rgba(255,255,255,0.45)" tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ background: '#12071b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#fff' }} />
-                  <Line type="monotone" dataKey="views" stroke="#c084fc" strokeWidth={3} dot={false} />
-                  <Line type="monotone" dataKey="engagement" stroke="#fb7185" strokeWidth={3} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-fuchsia-100">Top reel list</p>
+            <div className="mt-6 grid gap-3">
+              {(hasViews ? [...topReels].reverse().slice(0, 4) : reelRows.slice(0, 4)).map((item) => (
+                <a key={item.permalink || item.name} href={item.permalink} target="_blank" className="rounded-[8px] border border-white/10 bg-white/[0.05] p-4 transition hover:border-fuchsia-200/45">
+                  <p className="line-clamp-1 text-sm font-bold text-white">{item.title}</p>
+                  <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-white/45">
+                    {hasViews ? `${formatCompactNumber(item.views)} views` : 'Views pending'}
+                  </p>
+                </a>
+              ))}
             </div>
           </Card>
           <div className="grid grid-cols-2 gap-4">
             {[
-              ['Engagement', '8.6%'],
-              ['Avg. views', '3.1M'],
+              ['Followers', formatCompactNumber(feed.followersCount)],
+              ['Posts', formatCompactNumber(feed.mediaCount)],
+              ['Tracked Reels', formatCompactNumber(reelRows.length)],
+              ['Top Views', formatCompactNumber(topViews || totalViews)],
+              ['Interactions', formatCompactNumber(totalInteractions)],
             ].map(([label, value]) => (
               <Card key={label} className="p-5">
                 <p className="text-3xl font-black text-white">{value}</p>
@@ -705,7 +740,7 @@ export default function Home() {
       <About feed={instagramFeed} />
       <ReelsShowcase feed={instagramFeed} />
       <Brands />
-      <Analytics />
+      <Analytics feed={instagramFeed} />
       <Gallery feed={instagramFeed} />
       <Services />
       <Contact />
