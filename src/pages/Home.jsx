@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useRef, useState } from 'react'
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion as Motion, useInView } from 'framer-motion'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -119,9 +119,17 @@ function getFeedImage(item) {
   return item?.thumbnailUrl || item?.mediaUrl || ''
 }
 
+function getFeedVideo(item) {
+  return item?.mediaType === 'VIDEO' || item?.mediaType === 'REELS' ? item.mediaUrl || '' : ''
+}
+
 function formatCompactNumber(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return 'N/A'
   return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(value))
+}
+
+function isMobilePlaybackViewport() {
+  return window.matchMedia('(hover: none), (pointer: coarse), (max-width: 767px)').matches
 }
 
 function Hero({ feed }) {
@@ -320,21 +328,105 @@ function About({ feed }) {
 }
 
 function ReelCard({ reel, onPreview, soundEnabled, playTone }) {
+  const cardRef = useRef(null)
+  const videoRef = useRef(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const hasVideo = Boolean(reel.videoUrl)
+
+  const playVideo = useCallback(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    video.muted = true
+    video.play()
+      .then(() => setIsPlaying(true))
+      .catch(() => setIsPlaying(false))
+  }, [])
+
+  const pauseVideo = useCallback(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    video.pause()
+    setIsPlaying(false)
+  }, [])
+
+  useEffect(() => {
+    const card = cardRef.current
+    if (!card || !hasVideo) return undefined
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!isMobilePlaybackViewport()) return
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.65) {
+          playVideo()
+        } else {
+          pauseVideo()
+        }
+      },
+      { threshold: [0, 0.35, 0.65, 0.9] },
+    )
+
+    observer.observe(card)
+
+    return () => {
+      observer.disconnect()
+      pauseVideo()
+    }
+  }, [hasVideo, pauseVideo, playVideo])
+
+  const handleMouseEnter = () => {
+    playTone()
+    if (hasVideo && !isMobilePlaybackViewport()) playVideo()
+  }
+
+  const handleMouseLeave = () => {
+    if (hasVideo && !isMobilePlaybackViewport()) pauseVideo()
+  }
+
+  const handleClick = () => {
+    if (hasVideo) {
+      playVideo()
+      return
+    }
+
+    onPreview(reel)
+  }
+
   return (
     <Motion.button
+      ref={cardRef}
+      type="button"
       className="group relative aspect-[9/16] overflow-hidden rounded-[8px] border border-white/12 bg-white/[0.06] text-left shadow-[0_24px_80px_rgba(0,0,0,0.34)]"
       whileHover={{ y: -10, scale: 1.02 }}
       transition={{ duration: 0.28 }}
-      onMouseEnter={playTone}
-      onClick={() => onPreview(reel)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
+      aria-label={`${hasVideo ? 'Play' : 'Preview'} ${reel.title}`}
       data-cursor
     >
-      <img src={reel.image} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-110" loading="lazy" />
+      {hasVideo ? (
+        <video
+          ref={videoRef}
+          src={reel.videoUrl}
+          poster={reel.image}
+          className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+        />
+      ) : (
+        <img src={reel.image} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-110" loading="lazy" />
+      )}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent" />
       <div className="absolute left-4 top-4 rounded-full bg-pink-500 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_0_25px_rgba(236,72,153,0.55)]">
         Trending
       </div>
-      <div className="absolute inset-0 grid place-items-center opacity-0 transition duration-300 group-hover:opacity-100">
+      <div className={cn('absolute inset-0 grid place-items-center transition duration-300', isPlaying ? 'opacity-0' : 'opacity-0 group-hover:opacity-100')}>
         <span className="grid h-16 w-16 place-items-center rounded-full bg-white/16 backdrop-blur-xl">
           <Play className="h-7 w-7 fill-white text-white" />
         </span>
@@ -366,6 +458,7 @@ function ReelsShowcase({ feed }) {
         comments: item.commentsCount ? `${item.commentsCount}` : 'DM',
         image: getFeedImage(item),
         permalink: item.permalink,
+        videoUrl: getFeedVideo(item),
       }))
     : reels
 
