@@ -38,7 +38,7 @@ async function requestJson(url) {
   const response = await fetch(url)
   if (!response.ok) {
     const body = await response.text()
-    throw new Error(`${response.status} ${response.statusText}: ${body.slice(0, 240)}`)
+    throw new Error(`${response.status} ${response.statusText}: ${body.replaceAll(process.env.INSTAGRAM_ACCESS_TOKEN || '__NO_BASIC_TOKEN__', '[redacted]').replaceAll(process.env.META_ACCESS_TOKEN || '__NO_META_TOKEN__', '[redacted]').slice(0, 360)}`)
   }
   return response.json()
 }
@@ -108,7 +108,20 @@ async function main() {
     console.log(`Instagram feed saved with ${feed.items.length} media item(s).`)
   } catch (error) {
     const existing = await readExistingFallback()
-    await writeFile(outputPath, `${JSON.stringify({ ...fallback, ...existing, source: 'fallback-error' }, null, 2)}\n`)
+    await writeFile(
+      outputPath,
+      `${JSON.stringify(
+        {
+          ...fallback,
+          ...existing,
+          source: 'fallback-error',
+          error: error.message,
+          fetchedAt: new Date().toISOString(),
+        },
+        null,
+        2,
+      )}\n`,
+    )
     console.warn(`Instagram feed unavailable. Using fallback feed. ${error.message}`)
   }
 }
