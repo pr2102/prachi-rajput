@@ -43,7 +43,6 @@ import {
   campaignStats,
   creator,
   gallery,
-  heroImages,
   reels,
   services,
   testimonials,
@@ -128,21 +127,30 @@ function formatCompactNumber(value) {
   return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(value))
 }
 
+function getReelPreviewImages(feed, limit = 8) {
+  const itemsWithImages = feed.items.map((item) => ({ item, image: getFeedImage(item) })).filter(({ image }) => image)
+  const reelImages = itemsWithImages
+    .filter(({ item }) => item.mediaType === 'VIDEO' || item.mediaType === 'REELS')
+    .map(({ image }) => image)
+  const recentImages = itemsWithImages.map(({ image }) => image)
+  const fallbackImages = reels.map((reel) => reel.image).filter(Boolean)
+
+  return [...new Set([...reelImages, ...recentImages, ...fallbackImages])].slice(0, limit)
+}
+
+function getTotalReelViews(feed) {
+  return feed.items
+    .filter((item) => item.mediaType === 'VIDEO' || item.mediaType === 'REELS')
+    .reduce((sum, item) => sum + Number(item.viewCount || 0), 0)
+}
+
 function isMobilePlaybackViewport() {
   return window.matchMedia('(hover: none), (pointer: coarse), (max-width: 767px)').matches
 }
 
 function ReelPreviewBackground({ feed }) {
   const [activeIndex, setActiveIndex] = useState(0)
-  const images = useMemo(() => {
-    const liveReelImages = feed.items
-      .filter((item) => item.mediaType === 'VIDEO' || item.mediaType === 'REELS')
-      .map(getFeedImage)
-      .filter(Boolean)
-
-    const fallbackImages = reels.map((reel) => reel.image).filter(Boolean)
-    return [...new Set(liveReelImages.length ? liveReelImages.slice(0, 8) : fallbackImages.slice(0, 8))]
-  }, [feed.items])
+  const images = useMemo(() => getReelPreviewImages(feed, 8), [feed])
   const displayIndex = images.length ? activeIndex % images.length : 0
 
   useEffect(() => {
@@ -175,17 +183,15 @@ function ReelPreviewBackground({ feed }) {
 
 function Hero({ feed }) {
   const [imageIndex, setImageIndex] = useState(0)
-  const textHeavyPattern = /status|people|starting|tomorrow|follow|subscribe|quote|motivation/i
-  const visualItems = feed.items.filter((item) => {
-    const caption = item.caption || ''
-    return !textHeavyPattern.test(caption) && getFeedImage(item)
-  })
-  const liveImages = (visualItems.length ? visualItems : feed.items).map(getFeedImage).filter(Boolean)
-  const images = liveImages.length ? liveImages.slice(0, 3) : heroImages
-  const heroStats = feed.followersCount
+  const images = useMemo(() => getReelPreviewImages(feed, 8), [feed])
+  const totalReelViews = getTotalReelViews(feed)
+  const reelViewsStat = totalReelViews > 0
+    ? { label: 'Reel Views', value: `${formatCompactNumber(totalReelViews)}+`, detail: 'total reel views' }
+    : creator.stats[1]
+  const heroStats = feed.mediaCount
     ? [
-        { label: 'Followers', value: `${Math.round(feed.followersCount / 1000)}K`, detail: 'live from Instagram' },
-        { label: 'Posts', value: `${feed.mediaCount || liveImages.length}`, detail: `@${feed.username}` },
+        reelViewsStat,
+        { label: 'Posts', value: `${feed.mediaCount || images.length}`, detail: `@${feed.username}` },
         creator.stats[2],
       ]
     : creator.stats
