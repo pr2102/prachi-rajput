@@ -132,6 +132,47 @@ function isMobilePlaybackViewport() {
   return window.matchMedia('(hover: none), (pointer: coarse), (max-width: 767px)').matches
 }
 
+function ReelPreviewBackground({ feed }) {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const images = useMemo(() => {
+    const liveReelImages = feed.items
+      .filter((item) => item.mediaType === 'VIDEO' || item.mediaType === 'REELS')
+      .map(getFeedImage)
+      .filter(Boolean)
+
+    const fallbackImages = reels.map((reel) => reel.image).filter(Boolean)
+    return [...new Set(liveReelImages.length ? liveReelImages.slice(0, 8) : fallbackImages.slice(0, 8))]
+  }, [feed.items])
+  const displayIndex = images.length ? activeIndex % images.length : 0
+
+  useEffect(() => {
+    if (images.length <= 1) return undefined
+
+    const timer = setInterval(() => {
+      setActiveIndex((current) => (current + 1) % images.length)
+    }, 3600)
+
+    return () => clearInterval(timer)
+  }, [images.length])
+
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden bg-[#06020b]">
+      {images.map((image, index) => (
+        <Motion.img
+          key={image}
+          src={image}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          initial={false}
+          animate={{ opacity: displayIndex === index ? 0.28 : 0, scale: displayIndex === index ? 1.04 : 1.1 }}
+          transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
+        />
+      ))}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(147,51,234,0.28),transparent_30%),radial-gradient(circle_at_80%_30%,rgba(236,72,153,0.25),transparent_34%),linear-gradient(145deg,rgba(5,1,8,0.95),rgba(17,0,24,0.82)_45%,rgba(6,2,11,0.94))]" />
+    </div>
+  )
+}
+
 function Hero({ feed }) {
   const [imageIndex, setImageIndex] = useState(0)
   const textHeavyPattern = /status|people|starting|tomorrow|follow|subscribe|quote|motivation/i
@@ -855,7 +896,7 @@ export default function Home() {
   return (
     <div className="min-h-screen overflow-hidden bg-[#06020b] text-white">
       <LoadingScreen loading={loading} />
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_18%_15%,rgba(147,51,234,0.28),transparent_30%),radial-gradient(circle_at_80%_30%,rgba(236,72,153,0.25),transparent_34%),linear-gradient(145deg,#050108,#110018_45%,#06020b)]" />
+      <ReelPreviewBackground feed={instagramFeed} />
       <div className="fixed inset-0 -z-10 aurora-noise opacity-70" />
       <Hero feed={instagramFeed} />
       <About feed={instagramFeed} />
