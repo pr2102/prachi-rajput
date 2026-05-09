@@ -331,16 +331,24 @@ function ReelCard({ reel, onPreview, soundEnabled, playTone }) {
   const cardRef = useRef(null)
   const videoRef = useRef(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isAudible, setIsAudible] = useState(false)
   const hasVideo = Boolean(reel.videoUrl)
 
-  const playVideo = useCallback(() => {
+  const playVideo = useCallback((withSound = false) => {
     const video = videoRef.current
     if (!video) return
 
-    video.muted = true
+    video.muted = !withSound
+    setIsAudible(withSound)
     video.play()
       .then(() => setIsPlaying(true))
-      .catch(() => setIsPlaying(false))
+      .catch(() => {
+        video.muted = true
+        setIsAudible(false)
+        video.play()
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false))
+      })
   }, [])
 
   const pauseVideo = useCallback(() => {
@@ -348,7 +356,9 @@ function ReelCard({ reel, onPreview, soundEnabled, playTone }) {
     if (!video) return
 
     video.pause()
+    video.muted = true
     setIsPlaying(false)
+    setIsAudible(false)
   }, [])
 
   useEffect(() => {
@@ -377,7 +387,7 @@ function ReelCard({ reel, onPreview, soundEnabled, playTone }) {
 
   const handleMouseEnter = () => {
     playTone()
-    if (hasVideo && !isMobilePlaybackViewport()) playVideo()
+    if (hasVideo && !isMobilePlaybackViewport()) playVideo(soundEnabled)
   }
 
   const handleMouseLeave = () => {
@@ -386,7 +396,7 @@ function ReelCard({ reel, onPreview, soundEnabled, playTone }) {
 
   const handleClick = () => {
     if (hasVideo) {
-      playVideo()
+      playVideo(true)
       return
     }
 
@@ -417,7 +427,11 @@ function ReelCard({ reel, onPreview, soundEnabled, playTone }) {
           playsInline
           preload="metadata"
           onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
+          onPause={() => {
+            setIsPlaying(false)
+            setIsAudible(false)
+          }}
+          onVolumeChange={(event) => setIsAudible(!event.currentTarget.muted)}
         />
       ) : (
         <img src={reel.image} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-110" loading="lazy" />
@@ -440,7 +454,7 @@ function ReelCard({ reel, onPreview, soundEnabled, playTone }) {
           <span className="flex items-center gap-1.5"><MessageCircle className="h-4 w-4" />{reel.comments}</span>
         </div>
       </div>
-      {soundEnabled ? <span className="sr-only">Hover sound enabled</span> : null}
+      {isAudible ? <span className="sr-only">Reel sound playing</span> : null}
     </Motion.button>
   )
 }
