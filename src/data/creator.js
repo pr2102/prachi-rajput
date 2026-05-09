@@ -14,15 +14,16 @@ import {
 
 export const creator = {
   name: 'Prachi Rajput',
-  signature: '@prachirajput',
+  signature: '@prachi.rajput.011',
   title: 'Digital Creator • Reel Artist • Influencer',
   location: 'Mumbai / Delhi / Anywhere the light is perfect',
   bio: 'Prachi Rajput builds cinematic fashion, beauty, and lifestyle stories for audiences who scroll fast but remember feeling. Her work blends confident styling, crisp transitions, expressive edits, and social-first storytelling that makes brands feel native to culture.',
   email: 'collab@prachirajput.studio',
   whatsapp: '+91 98765 43210',
+  profileUrl: 'https://www.instagram.com/prachi.rajput.011/',
   socials: [
-    { label: 'Instagram', href: 'https://instagram.com', icon: Camera },
-    { label: 'DM', href: 'https://instagram.com', icon: MessageCircle },
+    { label: 'Instagram', href: 'https://www.instagram.com/prachi.rajput.011/', icon: Camera },
+    { label: 'DM', href: 'https://www.instagram.com/prachi.rajput.011/', icon: MessageCircle },
     { label: 'Creator Kit', href: '#services', icon: WandSparkles },
   ],
   stats: [

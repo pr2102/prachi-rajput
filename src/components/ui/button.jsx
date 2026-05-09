@@ -26,17 +26,17 @@ const buttonVariants = cva(
   },
 )
 
-function Button({ className, variant, size, asChild = false, ...props }) {
+function Button({ className, variant, size, asChild = false, children, ...props }) {
   const classes = cn(buttonVariants({ variant, size }), className)
 
-  if (asChild && isValidElement(props.children)) {
-    return cloneElement(props.children, {
+  if (asChild && isValidElement(children)) {
+    return cloneElement(children, {
       ...props,
-      className: cn(classes, props.children.props.className),
+      className: cn(classes, children.props.className),
     })
   }
 
-  return <button className={classes} {...props} />
+  return <button className={classes} {...props}>{children}</button>
 }
 
 export { Button }

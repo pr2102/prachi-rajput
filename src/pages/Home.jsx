@@ -51,6 +51,7 @@ import {
   services,
   testimonials,
 } from '../data/creator'
+import { useInstagramFeed } from '../hooks/useInstagramFeed'
 import { useLenis } from '../hooks/useLenis'
 import { cn } from '../lib/utils'
 
@@ -117,15 +118,24 @@ function useHoverTone(enabled) {
   }
 }
 
-function Hero() {
+function Hero({ feed }) {
   const [imageIndex, setImageIndex] = useState(0)
+  const liveImages = feed.items.map((item) => item.mediaUrl).filter(Boolean)
+  const images = liveImages.length ? liveImages.slice(0, 3) : heroImages
+  const heroStats = feed.followersCount
+    ? [
+        { label: 'Followers', value: `${Math.round(feed.followersCount / 1000)}K`, detail: 'live from Instagram' },
+        { label: 'Posts', value: `${feed.mediaCount || liveImages.length}`, detail: `@${feed.username}` },
+        creator.stats[2],
+      ]
+    : creator.stats
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setImageIndex((current) => (current + 1) % heroImages.length)
+      setImageIndex((current) => (current + 1) % images.length)
     }, 4200)
     return () => clearInterval(timer)
-  }, [])
+  }, [images.length])
 
   return (
     <section id="top" className="relative min-h-screen overflow-hidden px-4 pb-12 pt-4 sm:px-6 lg:px-8">
@@ -146,7 +156,7 @@ function Hero() {
       </nav>
 
       <div className="absolute inset-0">
-        {heroImages.map((image, index) => (
+        {images.map((image, index) => (
           <Motion.img
             key={image}
             src={image}
@@ -239,7 +249,7 @@ function Hero() {
           animate="visible"
           custom={0.45}
         >
-          {creator.stats.map((stat) => (
+          {heroStats.map((stat) => (
             <CountUp key={stat.label} {...stat} />
           ))}
         </Motion.div>
@@ -328,10 +338,21 @@ function ReelCard({ reel, onPreview, soundEnabled, playTone }) {
   )
 }
 
-function ReelsShowcase() {
+function ReelsShowcase({ feed }) {
   const [selected, setSelected] = useState(null)
   const [soundEnabled, setSoundEnabled] = useState(false)
   const playTone = useHoverTone(soundEnabled)
+  const displayReels = feed.items.length
+    ? feed.items.slice(0, 5).map((item, index) => ({
+        title: item.caption ? item.caption.split('\n')[0].slice(0, 46) || `Instagram Reel ${index + 1}` : `Instagram Reel ${index + 1}`,
+        tag: item.mediaType === 'VIDEO' ? 'Reel' : 'Post',
+        views: 'Live',
+        likes: item.likeCount ? `${item.likeCount}` : 'IG',
+        comments: item.commentsCount ? `${item.commentsCount}` : 'DM',
+        image: item.thumbnailUrl || item.mediaUrl,
+        permalink: item.permalink,
+      }))
+    : reels
 
   return (
     <section id="reels" className="section-shell gsap-panel">
@@ -348,7 +369,7 @@ function ReelsShowcase() {
         </Button>
       </div>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
-        {reels.map((reel, index) => (
+        {displayReels.map((reel, index) => (
           <Motion.div
             key={reel.title}
             initial={{ opacity: 0, y: 34 }}
@@ -484,10 +505,21 @@ function Analytics() {
   )
 }
 
-function Gallery() {
+function Gallery({ feed }) {
   const [filter, setFilter] = useState('all')
-  const filtered = useMemo(() => (filter === 'all' ? gallery : gallery.filter((item) => item.category === filter)), [filter])
-  const categories = ['all', 'fashion', 'beauty', 'travel', 'lifestyle']
+  const liveGallery = useMemo(
+    () =>
+      feed.items.length
+        ? feed.items.slice(0, 9).map((item, index) => ({
+            category: item.mediaType === 'VIDEO' ? 'reels' : 'instagram',
+            image: item.thumbnailUrl || item.mediaUrl,
+            height: index % 3 === 0 ? 'tall' : index % 3 === 1 ? 'medium' : 'short',
+          }))
+        : gallery,
+    [feed.items],
+  )
+  const filtered = useMemo(() => (filter === 'all' ? liveGallery : liveGallery.filter((item) => item.category === filter)), [filter, liveGallery])
+  const categories = feed.items.length ? ['all', 'instagram', 'reels'] : ['all', 'fashion', 'beauty', 'travel', 'lifestyle']
 
   return (
     <section id="gallery" className="section-shell">
@@ -565,7 +597,7 @@ function Contact() {
           <SectionHeading align="left" kicker="Contact" title="Let’s make your brand the reel they replay." text="Send a campaign brief, product launch, social story, or creator partnership inquiry." />
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             <Button asChild variant="glass">
-              <a href="https://instagram.com" target="_blank">
+              <a href={creator.profileUrl} target="_blank">
                 <Camera className="h-4 w-4" />
                 Instagram DM
               </a>
@@ -627,6 +659,7 @@ function Footer() {
 
 export default function Home() {
   const [loading, setLoading] = useState(true)
+  const instagramFeed = useInstagramFeed()
   useLenis()
 
   useEffect(() => {
@@ -662,12 +695,12 @@ export default function Home() {
       <LoadingScreen loading={loading} />
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_18%_15%,rgba(147,51,234,0.28),transparent_30%),radial-gradient(circle_at_80%_30%,rgba(236,72,153,0.25),transparent_34%),linear-gradient(145deg,#050108,#110018_45%,#06020b)]" />
       <div className="fixed inset-0 -z-10 aurora-noise opacity-70" />
-      <Hero />
+      <Hero feed={instagramFeed} />
       <About />
-      <ReelsShowcase />
+      <ReelsShowcase feed={instagramFeed} />
       <Brands />
       <Analytics />
-      <Gallery />
+      <Gallery feed={instagramFeed} />
       <Services />
       <Contact />
       <Footer />
