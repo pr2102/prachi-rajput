@@ -18,7 +18,7 @@ export const creator = {
   title: 'Digital Creator • Reel Artist • Influencer',
   location: 'Mumbai / Delhi / Anywhere the light is perfect',
   bio: 'Prachi Rajput builds cinematic fashion, beauty, and lifestyle stories for audiences who scroll fast but remember feeling. Her work blends confident styling, crisp transitions, expressive edits, and social-first storytelling that makes brands feel native to culture.',
-  email: 'collab@prachirajput.studio',
+  email: 'prachirajput1521@gmail.com',
   whatsapp: '+91 98765 43210',
   profileUrl: 'https://www.instagram.com/prachi.rajput.011/',
   socials: [

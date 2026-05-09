@@ -118,9 +118,13 @@ function useHoverTone(enabled) {
   }
 }
 
+function getFeedImage(item) {
+  return item?.thumbnailUrl || item?.mediaUrl || ''
+}
+
 function Hero({ feed }) {
   const [imageIndex, setImageIndex] = useState(0)
-  const liveImages = feed.items.map((item) => item.mediaUrl).filter(Boolean)
+  const liveImages = feed.items.map(getFeedImage).filter(Boolean)
   const images = liveImages.length ? liveImages.slice(0, 3) : heroImages
   const heroStats = feed.followersCount
     ? [
@@ -258,7 +262,9 @@ function Hero({ feed }) {
   )
 }
 
-function About() {
+function About({ feed }) {
+  const aboutImage = getFeedImage(feed.items[1]) || getFeedImage(feed.items[0]) || 'https://images.unsplash.com/photo-1524503033411-c9566986fc8f?auto=format&fit=crop&w=900&q=85'
+
   return (
     <section id="about" className="section-shell gsap-panel">
       <div className="grid items-center gap-10 lg:grid-cols-[0.85fr_1fr]">
@@ -272,7 +278,7 @@ function About() {
           <div className="absolute inset-6 rounded-[8px] bg-fuchsia-500/25 blur-3xl" />
           <Card className="relative overflow-hidden p-3">
             <img
-              src="https://images.unsplash.com/photo-1524503033411-c9566986fc8f?auto=format&fit=crop&w=900&q=85"
+              src={aboutImage}
               alt="Prachi Rajput editorial portrait placeholder"
               className="aspect-[4/5] w-full rounded-[6px] object-cover"
               loading="lazy"
@@ -349,7 +355,7 @@ function ReelsShowcase({ feed }) {
         views: 'Live',
         likes: item.likeCount ? `${item.likeCount}` : 'IG',
         comments: item.commentsCount ? `${item.commentsCount}` : 'DM',
-        image: item.thumbnailUrl || item.mediaUrl,
+        image: getFeedImage(item),
         permalink: item.permalink,
       }))
     : reels
@@ -512,7 +518,7 @@ function Gallery({ feed }) {
       feed.items.length
         ? feed.items.slice(0, 9).map((item, index) => ({
             category: item.mediaType === 'VIDEO' ? 'reels' : 'instagram',
-            image: item.thumbnailUrl || item.mediaUrl,
+            image: getFeedImage(item),
             height: index % 3 === 0 ? 'tall' : index % 3 === 1 ? 'medium' : 'short',
           }))
         : gallery,
@@ -696,7 +702,7 @@ export default function Home() {
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_18%_15%,rgba(147,51,234,0.28),transparent_30%),radial-gradient(circle_at_80%_30%,rgba(236,72,153,0.25),transparent_34%),linear-gradient(145deg,#050108,#110018_45%,#06020b)]" />
       <div className="fixed inset-0 -z-10 aurora-noise opacity-70" />
       <Hero feed={instagramFeed} />
-      <About />
+      <About feed={instagramFeed} />
       <ReelsShowcase feed={instagramFeed} />
       <Brands />
       <Analytics />
