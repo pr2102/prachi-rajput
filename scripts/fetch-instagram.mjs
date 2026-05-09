@@ -12,6 +12,14 @@ const fallback = {
   items: [],
 }
 
+function cleanToken(value) {
+  return (value || '')
+    .trim()
+    .replace(/^Bearer\s+/i, '')
+    .replace(/^["']|["']$/g, '')
+    .trim()
+}
+
 async function readExistingFallback() {
   try {
     return JSON.parse(await readFile(outputPath, 'utf8'))
@@ -34,17 +42,37 @@ function normalizeMedia(item) {
   }
 }
 
-async function requestJson(url) {
-  const response = await fetch(url)
+function redactSecret(text) {
+  return text
+    .replaceAll(cleanToken(process.env.INSTAGRAM_ACCESS_TOKEN) || '__NO_BASIC_TOKEN__', '[redacted]')
+    .replaceAll(cleanToken(process.env.META_ACCESS_TOKEN) || '__NO_META_TOKEN__', '[redacted]')
+}
+
+async function requestJson(url, options = {}) {
+  const response = await fetch(url, options)
   if (!response.ok) {
     const body = await response.text()
-    throw new Error(`${response.status} ${response.statusText}: ${body.replaceAll(process.env.INSTAGRAM_ACCESS_TOKEN || '__NO_BASIC_TOKEN__', '[redacted]').replaceAll(process.env.META_ACCESS_TOKEN || '__NO_META_TOKEN__', '[redacted]').slice(0, 360)}`)
+    throw new Error(`${response.status} ${response.statusText}: ${redactSecret(body).slice(0, 500)}`)
   }
   return response.json()
 }
 
+async function requestFirstJson(requests) {
+  const errors = []
+
+  for (const request of requests) {
+    try {
+      return await requestJson(request.url, request.options)
+    } catch (error) {
+      errors.push(`${request.label}: ${error.message}`)
+    }
+  }
+
+  throw new Error(errors.join(' | '))
+}
+
 async function fetchBusinessGraphFeed() {
-  const token = process.env.META_ACCESS_TOKEN
+  const token = cleanToken(process.env.META_ACCESS_TOKEN)
   const userId = process.env.INSTAGRAM_BUSINESS_USER_ID
   if (!token || !userId) return null
 
@@ -71,22 +99,57 @@ async function fetchBusinessGraphFeed() {
 }
 
 async function fetchBasicDisplayFeed() {
-  const token = process.env.INSTAGRAM_ACCESS_TOKEN
+  const token = cleanToken(process.env.INSTAGRAM_ACCESS_TOKEN)
   if (!token) return null
 
-  const profile = await requestJson(
-    `https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${encodeURIComponent(token)}`,
-  )
-  const media = await requestJson(
-    `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp&limit=12&access_token=${encodeURIComponent(token)}`,
-  )
+  const authOptions = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+
+  const profileFields = 'id,username,name,account_type,media_count,profile_picture_url,followers_count'
+  const profile = await requestFirstJson([
+    {
+      label: 'instagram-login-profile-header',
+      url: `https://graph.instagram.com/v25.0/me?fields=${encodeURIComponent(profileFields)}`,
+      options: authOptions,
+    },
+    {
+      label: 'instagram-login-profile-query',
+      url: `https://graph.instagram.com/v25.0/me?fields=${encodeURIComponent(profileFields)}&access_token=${encodeURIComponent(token)}`,
+    },
+    {
+      label: 'basic-display-profile-query',
+      url: `https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${encodeURIComponent(token)}`,
+    },
+  ])
+
+  const mediaFields = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count'
+  const media = await requestFirstJson([
+    {
+      label: 'instagram-login-media-by-id-header',
+      url: `https://graph.instagram.com/v25.0/${profile.id}/media?fields=${encodeURIComponent(mediaFields)}&limit=12`,
+      options: authOptions,
+    },
+    {
+      label: 'instagram-login-media-me-header',
+      url: `https://graph.instagram.com/v25.0/me/media?fields=${encodeURIComponent(mediaFields)}&limit=12`,
+      options: authOptions,
+    },
+    {
+      label: 'basic-display-media-query',
+      url: `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp&limit=12&access_token=${encodeURIComponent(token)}`,
+    },
+  ])
 
   return {
-    source: 'instagram-basic-display',
+    source: 'instagram-access-token',
     username: profile.username || fallback.username,
     profileUrl,
+    profilePictureUrl: profile.profile_picture_url || '',
     mediaCount: profile.media_count ?? null,
-    followersCount: null,
+    followersCount: profile.followers_count ?? null,
     items: (media.data || []).map(normalizeMedia).filter((item) => item.mediaUrl),
     fetchedAt: new Date().toISOString(),
   }
