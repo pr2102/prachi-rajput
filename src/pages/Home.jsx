@@ -126,7 +126,12 @@ function formatCompactNumber(value) {
 
 function Hero({ feed }) {
   const [imageIndex, setImageIndex] = useState(0)
-  const liveImages = feed.items.map(getFeedImage).filter(Boolean)
+  const textHeavyPattern = /status|people|starting|tomorrow|follow|subscribe|quote|motivation/i
+  const visualItems = feed.items.filter((item) => {
+    const caption = item.caption || ''
+    return !textHeavyPattern.test(caption) && getFeedImage(item)
+  })
+  const liveImages = (visualItems.length ? visualItems : feed.items).map(getFeedImage).filter(Boolean)
   const images = liveImages.length ? liveImages.slice(0, 3) : heroImages
   const heroStats = feed.followersCount
     ? [
@@ -212,8 +217,10 @@ function Hero({ feed }) {
           >
             <MagneticButton>
               <Button asChild>
-                <a href="#reels">
-                  <Play className="h-4 w-4 fill-black" />
+                <a href="#reels" className="min-w-56 justify-center overflow-visible shadow-[0_0_55px_rgba(255,255,255,0.22)]">
+                  <span className="relative mr-1 grid h-8 w-8 place-items-center rounded-full bg-black text-white shadow-[0_0_28px_rgba(236,72,153,0.55)] before:absolute before:inset-[-8px] before:rounded-full before:border before:border-black/20 before:content-[''] before:animate-ping">
+                    <Play className="ml-0.5 h-4 w-4 fill-white text-white" />
+                  </span>
                   Watch Reels
                 </a>
               </Button>
@@ -631,6 +638,8 @@ function Services() {
 }
 
 function Contact() {
+  const whatsappHref = `https://wa.me/91${creator.whatsapp}?text=${encodeURIComponent('Hi Prachi, I want to collaborate with you.')}`
+
   return (
     <section id="contact" className="section-shell pb-16">
       <div className="grid gap-8 lg:grid-cols-[0.86fr_1.14fr]">
@@ -643,10 +652,10 @@ function Contact() {
                 Instagram DM
               </a>
             </Button>
-            <Button asChild>
-              <a href="https://wa.me/919876543210" target="_blank">
+            <Button asChild className="bg-[#25D366] text-black shadow-[0_0_45px_rgba(37,211,102,0.34)] hover:shadow-[0_0_60px_rgba(37,211,102,0.55)]">
+              <a href={whatsappHref} target="_blank">
                 <MessageCircle className="h-4 w-4" />
-                WhatsApp CTA
+                WhatsApp Me
               </a>
             </Button>
           </div>
@@ -656,15 +665,20 @@ function Contact() {
           </p>
         </div>
         <Card className="p-5 sm:p-8">
-          <form className="grid gap-4">
+          <form
+            className="grid gap-4"
+            action={`mailto:${creator.email}`}
+            method="post"
+            encType="text/plain"
+          >
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input placeholder="Your name" aria-label="Your name" />
-              <Input placeholder="Brand name" aria-label="Brand name" />
+              <Input name="name" placeholder="Your name" aria-label="Your name" />
+              <Input name="brand" placeholder="Brand name" aria-label="Brand name" />
             </div>
-            <Input type="email" placeholder="Email address" aria-label="Email address" />
-            <Input placeholder="Campaign budget" aria-label="Campaign budget" />
-            <Input as="textarea" rows={6} placeholder="Tell Prachi about the launch, timeline, deliverables, and mood." aria-label="Collaboration details" />
-            <Button type="button" className="mt-2 w-full">
+            <Input name="email" type="email" placeholder="Email address" aria-label="Email address" />
+            <Input name="budget" placeholder="Campaign budget" aria-label="Campaign budget" />
+            <Input name="message" as="textarea" rows={6} placeholder="Tell Prachi about the launch, timeline, deliverables, and mood." aria-label="Collaboration details" />
+            <Button type="submit" className="mt-2 w-full">
               <Send className="h-4 w-4" />
               Send Inquiry
             </Button>
