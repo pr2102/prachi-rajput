@@ -194,7 +194,7 @@ async function main() {
   await mkdir(path.dirname(outputPath), { recursive: true })
 
   try {
-    const feed = (await fetchBusinessGraphFeed()) || (await fetchBasicDisplayFeed())
+    const feed = (await fetchBasicDisplayFeed()) || (await fetchBusinessGraphFeed())
     if (!feed) {
       const existing = await readExistingFallback()
       await writeFile(outputPath, `${JSON.stringify({ ...fallback, ...existing }, null, 2)}\n`)
