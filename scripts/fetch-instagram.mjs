@@ -71,10 +71,44 @@ async function requestFirstJson(requests) {
   throw new Error(errors.join(' | '))
 }
 
+async function resolveInstagramBusinessAccount(token) {
+  const pageId = process.env.FACEBOOK_PAGE_ID
+  const pageFields = 'id,name,access_token,instagram_business_account,connected_instagram_account'
+
+  if (process.env.INSTAGRAM_BUSINESS_USER_ID) {
+    return {
+      instagramUserId: process.env.INSTAGRAM_BUSINESS_USER_ID,
+      pageAccessToken: token,
+    }
+  }
+
+  const pages = await requestJson(
+    `https://graph.facebook.com/v25.0/me/accounts?fields=${encodeURIComponent(pageFields)}&access_token=${encodeURIComponent(token)}`,
+  )
+
+  const page = (pages.data || []).find((item) => {
+    if (pageId && item.id !== pageId) return false
+    return item.instagram_business_account?.id || item.connected_instagram_account?.id
+  })
+
+  if (!page) {
+    throw new Error(
+      'No connected Instagram professional account found from /me/accounts. Link the Instagram Creator/Business account to a Facebook Page, or set INSTAGRAM_BUSINESS_USER_ID manually.',
+    )
+  }
+
+  return {
+    instagramUserId: page.instagram_business_account?.id || page.connected_instagram_account?.id,
+    pageAccessToken: page.access_token || token,
+    pageName: page.name,
+  }
+}
+
 async function fetchBusinessGraphFeed() {
   const token = cleanToken(process.env.META_ACCESS_TOKEN)
-  const userId = process.env.INSTAGRAM_BUSINESS_USER_ID
-  if (!token || !userId) return null
+  if (!token) return null
+
+  const { instagramUserId, pageAccessToken, pageName } = await resolveInstagramBusinessAccount(token)
 
   const fields = [
     'username',
@@ -83,7 +117,7 @@ async function fetchBusinessGraphFeed() {
     'profile_picture_url',
     'media.limit(12){id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count}',
   ].join(',')
-  const url = `https://graph.facebook.com/v20.0/${userId}?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(token)}`
+  const url = `https://graph.facebook.com/v25.0/${instagramUserId}?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(pageAccessToken)}`
   const data = await requestJson(url)
 
   return {
@@ -91,6 +125,7 @@ async function fetchBusinessGraphFeed() {
     username: data.username || fallback.username,
     profileUrl,
     profilePictureUrl: data.profile_picture_url || '',
+    pageName: pageName || '',
     mediaCount: data.media_count ?? null,
     followersCount: data.followers_count ?? null,
     items: (data.media?.data || []).map(normalizeMedia).filter((item) => item.mediaUrl),
