@@ -30,6 +30,7 @@ import { Swiper, SwiperSlide } from 'swiper/react'
 import 'swiper/css'
 import 'swiper/css/effect-coverflow'
 import 'swiper/css/pagination'
+import GamesSection from '../components/GamesSection'
 import LoadingScreen from '../components/LoadingScreen'
 import MagneticButton from '../components/MagneticButton'
 import ReelModal from '../components/ReelModal'
@@ -224,7 +225,7 @@ function Hero({ feed }) {
           Prachi
         </a>
         <div className="hidden items-center gap-5 text-xs font-semibold uppercase tracking-[0.18em] text-white/55 md:flex">
-          {['Reels', 'Brands', 'Analytics', 'Contact'].map((item) => (
+          {['Reels', 'Brands', 'Analytics', 'Games', 'Contact'].map((item) => (
             <a key={item} href={`#${item.toLowerCase()}`} className="transition hover:text-white">
               {item}
             </a>
@@ -938,6 +939,7 @@ export default function Home() {
       <Brands />
       <Analytics feed={instagramFeed} />
       <Gallery feed={instagramFeed} />
+      <GamesSection />
       <Services />
       <Contact />
       <Footer />
