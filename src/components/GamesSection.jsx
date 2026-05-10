@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { createElement, useEffect, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Bomb, Gamepad2, RotateCcw, Scissors, Sparkles, Trophy, Zap } from 'lucide-react'
 import SectionHeading from './SectionHeading'
 import { Button } from './ui/button'
@@ -325,21 +325,21 @@ export default function GamesSection() {
           <div>
             <SectionHeading align="left" kicker="Creator arcade" title="Fast games with a glam score rush." text="Three tap-first mini games built for quick replays, streak chasing, and creator-energy chaos." />
             <div className="mt-8 grid gap-3">
-              {gameTabs.map(({ id, title }) => (
+              {gameTabs.map((tab) => (
                 <button
-                  key={id}
+                  key={tab.id}
                   type="button"
-                  onClick={() => setActive(id)}
+                  onClick={() => setActive(tab.id)}
                   className={cn(
                     'flex items-center justify-between rounded-[8px] border p-4 text-left transition',
-                    active === id ? 'border-fuchsia-200 bg-white text-black shadow-[0_0_40px_rgba(244,114,182,0.25)]' : 'border-white/10 bg-white/[0.06] text-white hover:border-fuchsia-200/45',
+                    active === tab.id ? 'border-fuchsia-200 bg-white text-black shadow-[0_0_40px_rgba(244,114,182,0.25)]' : 'border-white/10 bg-white/[0.06] text-white hover:border-fuchsia-200/45',
                   )}
                 >
                   <span className="flex items-center gap-3 text-sm font-black uppercase tracking-[0.18em]">
-                    <Icon className="h-5 w-5" />
-                    {title}
+                    {createElement(tab.icon, { className: 'h-5 w-5' })}
+                    {tab.title}
                   </span>
-                  {active === id ? <Trophy className="h-5 w-5" /> : <Gamepad2 className="h-5 w-5 opacity-55" />}
+                  {active === tab.id ? <Trophy className="h-5 w-5" /> : <Gamepad2 className="h-5 w-5 opacity-55" />}
                 </button>
               ))}
             </div>
