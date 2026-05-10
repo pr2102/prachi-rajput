@@ -1,11 +1,30 @@
 import { AnimatePresence, motion as Motion } from 'framer-motion'
 import { ExternalLink, Eye, Heart, MessageCircle, Play, X } from 'lucide-react'
-import { createElement, useEffect, useRef } from 'react'
+import { createElement, useEffect, useRef, useState } from 'react'
 import { Button } from './ui/button'
 
 export default function ReelModal({ reel, onClose }) {
   const videoRef = useRef(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
   const hasVideo = Boolean(reel?.videoUrl)
+
+  const playVideo = (withSound = false) => {
+    const video = videoRef.current
+    if (!video) return
+
+    video.muted = !withSound
+    setIsMuted(!withSound)
+    video.play()
+      .then(() => setIsPlaying(true))
+      .catch(() => {
+        video.muted = true
+        setIsMuted(true)
+        video.play()
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false))
+      })
+  }
 
   useEffect(() => {
     if (!reel) return undefined
@@ -14,38 +33,33 @@ export default function ReelModal({ reel, onClose }) {
       if (event.key === 'Escape') onClose()
     }
 
+    const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      document.body.style.overflow = ''
+      document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [onClose, reel])
 
   useEffect(() => {
-    const video = videoRef.current
-    if (!video || !hasVideo) return
-
-    video.muted = false
-    video.play().catch(() => {
-      video.muted = true
-      video.play().catch(() => {})
-    })
+    if (!hasVideo) return
+    playVideo(false)
   }, [hasVideo, reel])
 
   return (
     <AnimatePresence>
       {reel ? (
         <Motion.div
-          className="fixed inset-0 z-[100] bg-black/88 backdrop-blur-xl"
+          className="fixed inset-0 z-[100] overflow-y-auto bg-black/88 backdrop-blur-xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
         >
           <Motion.div
-            className="relative grid h-full w-full overflow-hidden bg-[#050108] lg:grid-cols-[minmax(320px,44vw)_1fr]"
+            className="relative grid min-h-full w-full bg-[#050108] lg:h-full lg:overflow-hidden lg:grid-cols-[minmax(320px,44vw)_1fr]"
             initial={{ opacity: 0, scale: 0.92, y: 36 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 36 }}
@@ -62,19 +76,40 @@ export default function ReelModal({ reel, onClose }) {
             >
               <X className="h-5 w-5" />
             </Button>
-            <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-16 lg:px-10">
-              <div className="relative aspect-[9/16] h-[min(82vh,820px)] max-h-[820px] overflow-hidden rounded-[8px] border border-white/15 bg-black shadow-[0_0_100px_rgba(217,70,239,0.28)]">
+            <div className="relative z-10 flex min-h-[100svh] items-center justify-center px-4 py-16 lg:min-h-full lg:px-10">
+              <div className="relative aspect-[9/16] h-[min(78svh,820px)] max-h-[820px] overflow-hidden rounded-[8px] border border-white/15 bg-black shadow-[0_0_100px_rgba(217,70,239,0.28)]">
                 {hasVideo ? (
-                  <video
-                    ref={videoRef}
-                    src={reel.videoUrl}
-                    poster={reel.image}
-                    className="h-full w-full object-cover"
-                    controls
-                    loop
-                    playsInline
-                    preload="metadata"
-                  />
+                  <>
+                    <video
+                      ref={videoRef}
+                      src={reel.videoUrl}
+                      poster={reel.image}
+                      className="h-full w-full object-cover"
+                      controls
+                      loop
+                      muted={isMuted}
+                      playsInline
+                      preload="metadata"
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                      onVolumeChange={(event) => setIsMuted(event.currentTarget.muted)}
+                    />
+                    {(!isPlaying || isMuted) ? (
+                      <button
+                        type="button"
+                        className="absolute inset-0 grid place-items-center bg-black/10 transition hover:bg-black/0"
+                        aria-label="Play reel with sound"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          playVideo(true)
+                        }}
+                      >
+                        <span className="grid h-20 w-20 place-items-center rounded-full bg-white/18 text-white shadow-[0_0_45px_rgba(236,72,153,0.45)] backdrop-blur-xl">
+                          <Play className="ml-1 h-9 w-9 fill-white text-white" />
+                        </span>
+                      </button>
+                    ) : null}
+                  </>
                 ) : (
                   <>
                     <img src={reel.image} alt="" className="h-full w-full object-cover" />
