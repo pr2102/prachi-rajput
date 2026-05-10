@@ -1,50 +1,100 @@
 import { AnimatePresence, motion as Motion } from 'framer-motion'
-import { Eye, Heart, MessageCircle, Play, X } from 'lucide-react'
-import { createElement } from 'react'
+import { ExternalLink, Eye, Heart, MessageCircle, Play, X } from 'lucide-react'
+import { createElement, useEffect, useRef } from 'react'
 import { Button } from './ui/button'
 
 export default function ReelModal({ reel, onClose }) {
+  const videoRef = useRef(null)
+  const hasVideo = Boolean(reel?.videoUrl)
+
+  useEffect(() => {
+    if (!reel) return undefined
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose()
+    }
+
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [onClose, reel])
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !hasVideo) return
+
+    video.muted = false
+    video.play().catch(() => {
+      video.muted = true
+      video.play().catch(() => {})
+    })
+  }, [hasVideo, reel])
+
   return (
     <AnimatePresence>
       {reel ? (
         <Motion.div
-          className="fixed inset-0 z-[100] grid place-items-center bg-black/78 p-4 backdrop-blur-xl"
+          className="fixed inset-0 z-[100] bg-black/88 backdrop-blur-xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
         >
           <Motion.div
-            className="relative grid w-full max-w-4xl overflow-hidden rounded-[8px] border border-white/15 bg-[#0b0610] shadow-[0_0_100px_rgba(217,70,239,0.28)] md:grid-cols-[0.72fr_1fr]"
+            className="relative grid h-full w-full overflow-hidden bg-[#050108] lg:grid-cols-[minmax(320px,44vw)_1fr]"
             initial={{ opacity: 0, scale: 0.92, y: 36 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 36 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             onClick={(event) => event.stopPropagation()}
           >
+            <img src={reel.image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-20 blur-3xl" />
             <Button
               size="icon"
               variant="glass"
-              className="absolute right-4 top-4 z-10"
+              className="absolute right-4 top-4 z-20"
               aria-label="Close reel preview"
               onClick={onClose}
             >
               <X className="h-5 w-5" />
             </Button>
-            <div className="relative aspect-[9/16] min-h-[560px] overflow-hidden bg-black">
-              <img src={reel.image} alt="" className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent" />
-              <div className="absolute inset-0 grid place-items-center">
-                <span className="grid h-20 w-20 place-items-center rounded-full bg-white/15 backdrop-blur-xl">
-                  <Play className="h-8 w-8 fill-white text-white" />
-                </span>
+            <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-16 lg:px-10">
+              <div className="relative aspect-[9/16] h-[min(82vh,820px)] max-h-[820px] overflow-hidden rounded-[8px] border border-white/15 bg-black shadow-[0_0_100px_rgba(217,70,239,0.28)]">
+                {hasVideo ? (
+                  <video
+                    ref={videoRef}
+                    src={reel.videoUrl}
+                    poster={reel.image}
+                    className="h-full w-full object-cover"
+                    controls
+                    loop
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <>
+                    <img src={reel.image} alt="" className="h-full w-full object-cover" />
+                    <div className="absolute inset-0 grid place-items-center">
+                      <span className="grid h-20 w-20 place-items-center rounded-full bg-white/15 backdrop-blur-xl">
+                        <Play className="h-8 w-8 fill-white text-white" />
+                      </span>
+                    </div>
+                  </>
+                )}
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/25" />
               </div>
             </div>
-            <div className="flex flex-col justify-end p-7 sm:p-10">
-              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-fuchsia-200">{reel.tag} Reel</p>
-              <h3 className="mt-4 text-4xl font-black leading-none text-white">{reel.title}</h3>
-              <p className="mt-5 text-white/62">
-                A cinematic vertical cut with transition hooks, beauty lighting, and a scroll-stopping first frame.
+            <div className="relative z-10 flex flex-col justify-end border-t border-white/10 bg-black/30 p-6 backdrop-blur-xl lg:border-l lg:border-t-0 lg:p-10">
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-fuchsia-200">
+                {reel.isPinned ? 'Featured' : reel.tag} Reel
+              </p>
+              <h3 className="mt-4 max-w-2xl text-4xl font-black leading-none text-white sm:text-5xl">{reel.title}</h3>
+              <p className="mt-5 max-w-xl leading-7 text-white/62">
+                {reel.caption || 'A cinematic vertical cut with transition hooks, beauty lighting, and a scroll-stopping first frame.'}
               </p>
               <div className="mt-8 grid grid-cols-3 gap-3">
                 {[
@@ -57,6 +107,22 @@ export default function ReelModal({ reel, onClose }) {
                     <p className="text-lg font-bold text-white">{value}</p>
                   </div>
                 ))}
+              </div>
+              <div className="mt-7 flex flex-wrap gap-3">
+                {reel.permalink ? (
+                  <Button asChild variant="glass">
+                    <a href={reel.permalink} target="_blank">
+                      <ExternalLink className="h-4 w-4" />
+                      Open Reel
+                    </a>
+                  </Button>
+                ) : null}
+                <Button asChild>
+                  <a href="#contact" onClick={onClose}>
+                    <MessageCircle className="h-4 w-4" />
+                    Book Similar
+                  </a>
+                </Button>
               </div>
             </div>
           </Motion.div>

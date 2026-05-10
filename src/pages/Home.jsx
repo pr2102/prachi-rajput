@@ -42,6 +42,7 @@ import {
   brandLogos,
   campaignStats,
   creator,
+  featuredReelPins,
   gallery,
   reels,
   services,
@@ -142,6 +143,19 @@ function getTotalReelViews(feed) {
   return feed.items
     .filter((item) => item.mediaType === 'VIDEO' || item.mediaType === 'REELS')
     .reduce((sum, item) => sum + Number(item.viewCount || 0), 0)
+}
+
+function isPinnedReel(item, index, title) {
+  const caption = item?.caption || title || ''
+  return (
+    featuredReelPins.ids.includes(item?.id) ||
+    featuredReelPins.indexes.includes(index) ||
+    featuredReelPins.titleIncludes.some((text) => caption.toLowerCase().includes(text.toLowerCase()))
+  )
+}
+
+function sortPinnedFirst(items) {
+  return [...items].sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || a.sourceIndex - b.sourceIndex)
 }
 
 function isMobilePlaybackViewport() {
@@ -442,11 +456,7 @@ function ReelCard({ reel, onPreview, soundEnabled, playTone }) {
   }
 
   const handleClick = () => {
-    if (hasVideo) {
-      playVideo(true)
-      return
-    }
-
+    pauseVideo()
     onPreview(reel)
   }
 
@@ -485,7 +495,7 @@ function ReelCard({ reel, onPreview, soundEnabled, playTone }) {
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent" />
       <div className="absolute left-4 top-4 rounded-full bg-pink-500 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_0_25px_rgba(236,72,153,0.55)]">
-        Trending
+        {reel.isPinned ? 'Featured' : 'Trending'}
       </div>
       <div className={cn('absolute inset-0 grid place-items-center transition duration-300', isPlaying ? 'opacity-0' : 'opacity-0 group-hover:opacity-100')}>
         <span className="grid h-16 w-16 place-items-center rounded-full bg-white/16 backdrop-blur-xl">
@@ -510,18 +520,36 @@ function ReelsShowcase({ feed }) {
   const [selected, setSelected] = useState(null)
   const [soundEnabled, setSoundEnabled] = useState(false)
   const playTone = useHoverTone(soundEnabled)
-  const displayReels = feed.items.length
-    ? feed.items.slice(0, 5).map((item, index) => ({
-        title: item.caption ? item.caption.split('\n')[0].slice(0, 46) || `Instagram Reel ${index + 1}` : `Instagram Reel ${index + 1}`,
-        tag: item.mediaType === 'VIDEO' ? 'Reel' : 'Post',
-        views: 'Live',
+  const displayReels = useMemo(() => {
+    const liveReels = feed.items.map((item, index) => {
+      const title = item.caption ? item.caption.split('\n')[0].slice(0, 46) || `Instagram Reel ${index + 1}` : `Instagram Reel ${index + 1}`
+
+      return {
+        id: item.id || `instagram-${index}`,
+        sourceIndex: index,
+        title,
+        tag: item.mediaType === 'VIDEO' || item.mediaType === 'REELS' ? 'Reel' : 'Post',
+        views: item.viewCount ? formatCompactNumber(item.viewCount) : 'Live',
         likes: item.likeCount ? `${item.likeCount}` : 'IG',
         comments: item.commentsCount ? `${item.commentsCount}` : 'DM',
         image: getFeedImage(item),
         permalink: item.permalink,
         videoUrl: getFeedVideo(item),
-      }))
-    : reels
+        caption: item.caption || '',
+        isPinned: isPinnedReel(item, index, title),
+      }
+    })
+
+    const fallbackReels = reels.map((reel, index) => ({
+      ...reel,
+      id: `fallback-${index}`,
+      sourceIndex: index,
+      caption: reel.title,
+      isPinned: featuredReelPins.indexes.includes(index),
+    }))
+
+    return sortPinnedFirst((liveReels.length ? liveReels : fallbackReels).filter((reel) => reel.image)).slice(0, 8)
+  }, [feed.items])
 
   return (
     <section id="reels" className="section-shell gsap-panel">
@@ -537,10 +565,10 @@ function ReelsShowcase({ feed }) {
           Hover Sound
         </Button>
       </div>
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {displayReels.map((reel, index) => (
           <Motion.div
-            key={reel.title}
+            key={reel.id || reel.title}
             initial={{ opacity: 0, y: 34 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-90px' }}

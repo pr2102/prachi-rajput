@@ -87,6 +87,12 @@ export const reels = [
   },
 ]
 
+export const featuredReelPins = {
+  indexes: [0, 1, 2],
+  ids: [],
+  titleIncludes: [],
+}
+
 export const brandLogos = ['AURELIA', 'NYKAA', 'Myntra', 'Lakme', 'ZARA', 'H&M', 'Plum', 'Sugar', 'Ajio']
 
 export const testimonials = [
